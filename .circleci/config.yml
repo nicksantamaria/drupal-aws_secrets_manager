@@ -68,11 +68,11 @@ jobs:
           name: Fetch drupal dependencies
           command: composer install --prefer-dist --no-progress
       - checkout:
-          path: /data/app/modules/encrypt_kms
+          path: /data/app/modules/aws_secrets_manager
       - run:
-          name: Fetch encrypt_kms dependencies
+          name: Fetch aws_secrets_manager dependencies
           command: |
-            cat modules/encrypt_kms/composer.json \
+            cat modules/aws_secrets_manager/composer.json \
               | jq '.require | keys[] as $k | "\($k)=\(.[$k])@dev"' \
               | xargs composer require --no-progress
       - run:
@@ -81,7 +81,7 @@ jobs:
             mkdir -p sites/default/files/tmp sites/default/private
             chmod -R 777 sites/default/files sites/default/private
             drush -yv site-install minimal --db-url="${SIMPLETEST_DB}"
-            drush -yv en encrypt_kms simpletest
+            drush -yv en aws_secrets_manager simpletest
       - run: service apache2 restart
       - run:
           name: Run unit tests
@@ -90,7 +90,7 @@ jobs:
               --concurrency 4 \
               --url "${SIMPLETEST_BASE_URL}" \
               --dburl "${SIMPLETEST_DB}" \
-              "encrypt_kms"
+              "aws_secrets_manager"
 
   test_85x:
     <<: *test
