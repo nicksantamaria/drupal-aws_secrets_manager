@@ -29,6 +29,7 @@ class AwsSecretsManagerConfigForm extends ConfigFormBase {
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
     $config = $this->config('aws_secrets_manager.settings');
+
     $form['aws_key'] = [
       '#type' => 'textfield',
       '#title' => t('AWS Key'),
@@ -46,6 +47,13 @@ class AwsSecretsManagerConfigForm extends ConfigFormBase {
       '#default_value' => $config->get('aws_region'),
       '#required' => TRUE,
     ];
+    $form['secret_prefix'] = [
+      '#type' => 'textfield',
+      '#title' => t('Secret Prefix'),
+      '#description' => t('A string to prefix the key name with. Secret name can contain alphanumeric characters and the characters /_+=,.@-'),
+      '#default_value' => $config->get('secret_prefix'),
+    ];
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -58,6 +66,7 @@ class AwsSecretsManagerConfigForm extends ConfigFormBase {
       ->set('aws_key', $form_state->getValue('aws_key'))
       ->set('aws_secret', $form_state->getValue('aws_secret'))
       ->set('aws_region', $form_state->getValue('aws_region'))
+      ->set('secret_prefix', $form_state->getValue('secret_prefix'))
       ->save();
 
     parent::submitForm($form, $form_state);
