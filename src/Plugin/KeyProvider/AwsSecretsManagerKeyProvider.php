@@ -35,31 +35,61 @@ use Drupal\aws_secrets_manager\ClientFactory;
  */
 class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProviderSettableValueInterface, KeyPluginFormInterface {
 
+  /**
+   * The settings.
+   *
+   * @var \Drupal\Core\Config\ImmutableConfig
+   */
+  protected $settings;
+
+  /**
+   * The KMS client.
+   *
+   * @var \Aws\SecretsManager\SecretsManagerClient
+   */
   protected $client;
 
-  public function __construct(
-    array $configuration,
-    $plugin_id,
-    $plugin_definition,
-    ClientFactory $client_factory
-  ) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition);
+  /**
+   * The logger.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  protected $logger;
 
-    $this->clientFactory = $client_factory;
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+    /** @var self $instance */
+    $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
+    return $instance
+      ->setClient($container->get('aws_secrets_manager.aws_secrets_manager_client'))
+      ->setLogger($container->get('logger.channel.aws_secrets_manager'));
   }
 
-  public static function create(
-    ContainerInterface $container,
-    array $configuration,
-    $plugin_id,
-    $plugin_definition
-  ) {
-    return new static(
-      $configuration,
-      $plugin_id,
-      $plugin_definition,
-      $container->get('aws_secrets_manager.client_factory')
-    );
+  /**
+   * Sets kmsClient property.
+   *
+   * @param \Aws\SecretsManager\SecretsManagerClient $client
+   *   The secrets manager client.
+   *
+   * @return self
+   *   Current object.
+   */
+  public function setClient(SecretsManagerClient $client) {
+    $this->client = $client;
+    return $this;
+  }
+
+  /**
+   * Sets logger property.
+   *
+   * @param \Psr\Log\LoggerInterface $logger
+   *   The logger.
+   *
+   * @return self
+   *   Current object.
+   */
+  public function setLogger(LoggerInterface $logger) {
+    $this->logger = $logger;
+    return $this;
   }
 
   /**
