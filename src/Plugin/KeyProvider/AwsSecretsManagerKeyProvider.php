@@ -1,10 +1,5 @@
 <?php
 
-/**
- * @file
- * Contains Drupal\aws_secrets_manager\Plugin\KeyProvider\AwsSecretsManagerKeyProvider.
- */
-
 namespace Drupal\aws_secrets_manager\Plugin\KeyProvider;
 
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -58,6 +53,9 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
    */
   protected $logger;
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     /** @var self $instance */
     $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
@@ -165,6 +163,15 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
     return TRUE;
   }
 
+  /**
+   * Generates a prefixed secret name.
+   *
+   * @param string $key_name
+   *   The key machine name.
+   *
+   * @return string
+   *   The secret name as stored in AWS.
+   */
   public function secretName($key_name) {
     $config = $this->configFactory->get('aws_secrets_manager.settings');
     $config->get('secret_prefix');

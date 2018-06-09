@@ -1,20 +1,17 @@
 <?php
 
-/**
- * @file
- * Contains Drupal\aws_secrets_manager\AwsSecretsManagerClientFactory.
- */
-
 namespace Drupal\aws_secrets_manager;
+
 use Aws\SecretsManager\SecretsManagerClient;
 use Drupal\Core\Config\ConfigFactory;
 
 /**
- * Factory class for SecretsManagerClient which checks for credentials in config.
+ * Factory class for SecretsManagerClient which uses credentials in config.
  *
  * @package Drupal\aws_secrets_manager
  */
 class AwsSecretsManagerClientFactory {
+
   /**
    * Creates an AWS Secrets Manager Client instance.
    *
@@ -42,4 +39,5 @@ class AwsSecretsManagerClientFactory {
     $options['version'] = 'latest';
     return new SecretsManagerClient($options);
   }
+
 }
