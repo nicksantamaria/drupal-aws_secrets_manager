@@ -7,17 +7,12 @@
 
 namespace Drupal\aws_secrets_manager\Plugin\KeyProvider;
 
-use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Url;
-
 use Symfony\Component\DependencyInjection\ContainerInterface;
-
+use Psr\Log\LoggerInterface;
+use Aws\SecretsManager\SecretsManagerClient;
 use Drupal\key\KeyInterface;
-use Drupal\key\Plugin\KeyPluginFormInterface;
 use Drupal\key\Plugin\KeyProviderBase;
 use Drupal\key\Plugin\KeyProviderSettableValueInterface;
-
-use Drupal\aws_secrets_manager\ClientFactory;
 
 /**
  * Adds a key provider that allows a key to be stored in AWS Secrets Manager.
@@ -33,7 +28,7 @@ use Drupal\aws_secrets_manager\ClientFactory;
  *   }
  * )
  */
-class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProviderSettableValueInterface, KeyPluginFormInterface {
+class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProviderSettableValueInterface {
 
   /**
    * The settings.
@@ -50,6 +45,13 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
   protected $client;
 
   /**
+   * The config factory.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected $configFactory;
+
+  /**
    * The logger.
    *
    * @var \Psr\Log\LoggerInterface
@@ -59,6 +61,7 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     /** @var self $instance */
     $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
+    $instance->configFactory = \Drupal::configFactory();
     return $instance
       ->setClient($container->get('aws_secrets_manager.aws_secrets_manager_client'))
       ->setLogger($container->get('logger.channel.aws_secrets_manager'));
@@ -104,7 +107,20 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
    */
   public function getKeyValue(KeyInterface $key) {
     $name = $key->id();
-    // @todo fetch key from AWS.
+
+    try {
+      $response = $this->client->getSecretValue([
+        "SecretId" => $this->secretName($name),
+      ]);
+
+      if ($value = $response->get('SecretString')) {
+        return $value;
+      }
+    }
+    catch (\Exception $e) {
+      $this->logger->error(sprintf("unable to retrieve secret %s", $name));
+    }
+
     return '';
   }
 
@@ -115,7 +131,18 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
     $name = $key->id();
     $label = $key->label();
 
-    // @todo save key in AWS.
+    try {
+      $response = $this->client->createSecret([
+        "Name" => $this->secretName($name),
+        "Description" => $label,
+        "SecretString" => $key_value,
+      ]);
+    }
+    catch (\Exception $e) {
+      $this->logger->error(sprintf("unable to create secret %s", $name));
+      return FALSE;
+    }
+
     return TRUE;
   }
 
@@ -124,7 +151,28 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
    */
   public function deleteKeyValue(KeyInterface $key) {
     $name = $key->id();
-    // @todo delete key from AWS.
+
+    try {
+      $response = $this->client->deleteSecret([
+        "SecretId" => $this->secretName($name),
+      ]);
+    }
+    catch (\Exception $e) {
+      $this->logger->error(sprintf("unable to delete secret %s", $name));
+      return FALSE;
+    }
+
+    return TRUE;
+  }
+
+  public function secretName($key_name) {
+    $config = $this->configFactory->get('aws_secrets_manager.settings');
+    $config->get('secret_prefix');
+    $parts = [
+      $config->get('secret_prefix'),
+      $key_name,
+    ];
+    return implode("-", array_filter($parts));
   }
 
 }
