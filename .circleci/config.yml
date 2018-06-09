@@ -4,7 +4,7 @@ jobs:
   # Job syncs GitHub repository to git.drupal.org.
   sync_drupalorg:
     docker:
-      - image: nicksantamaria/circleci-drupal-kms-encrypt:latest
+      - image: nicksantamaria/drupal_contrib_builder:latest
     working_directory: /data
     environment:
       GIT_MIRROR_URL: nickurbits@git.drupal.org:project/aws_secrets_manager.git
@@ -19,7 +19,7 @@ jobs:
   # Job performs code style / validation tasks.
   lint:
     docker:
-      - image: nicksantamaria/circleci-drupal-kms-encrypt:latest
+      - image: nicksantamaria/drupal_contrib_builder:latest
     working_directory: /data
     steps:
       - checkout
@@ -40,14 +40,11 @@ jobs:
       - run:
           name: Test drupal.org packager excludes
           command: bash ./tests/package-excludes/run-test.sh $(pwd)
-      - run:
-          name: Ensure terraform code is valid
-          command: tflint
-          working_directory: /data/infracode/terraform
+
   # Job template for running Drupal test suite against specified Drupal version.
   test: &test
     docker:
-      - image: nicksantamaria/circleci-drupal-kms-encrypt:latest
+      - image: nicksantamaria/drupal_contrib_builder:latest
         environment:
           SIMPLETEST_BASE_URL: http://127.0.0.1
           SIMPLETEST_DB: mysql://drupal:drupal@127.0.0.1/local
@@ -106,8 +103,6 @@ workflows:
   main:
     jobs:
       - lint
-      - test_85x
-      - test_86x
   sync:
     jobs:
       - sync_drupalorg:
