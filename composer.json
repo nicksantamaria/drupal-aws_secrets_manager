@@ -2,6 +2,7 @@
   "name": "drupal/aws_secrets_manager",
   "description": "This Drupal module adds a AWS Secrets Manager key provider for the Key module.",
   "type": "drupal-module",
+  "license": "GPL-2.0-or-later",
   "homepage": "https://www.drupal.org/project/aws_secrets_manager",
   "require": {
     "drupal/key": "^1.5",
