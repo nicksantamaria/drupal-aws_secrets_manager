@@ -4,12 +4,15 @@ namespace Drupal\aws_secrets_manager\Form;
 
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 
 /**
  * Provides a config form for AWS Secrets Manager.
  */
 class AwsSecretsManagerConfigForm extends ConfigFormBase {
 
+  use StringTranslationTrait;
+  
   /**
    * {@inheritdoc}
    */
@@ -32,25 +35,25 @@ class AwsSecretsManagerConfigForm extends ConfigFormBase {
 
     $form['aws_key'] = [
       '#type' => 'textfield',
-      '#title' => t('AWS Key'),
+      '#title' => $this->t('AWS Key'),
       '#default_value' => $config->get('aws_key'),
     ];
     $form['aws_secret'] = [
       '#type' => 'textfield',
-      '#title' => t('AWS Secret'),
+      '#title' => $this->t('AWS Secret'),
       '#default_value' => $config->get('aws_secret'),
     ];
     $form['aws_region'] = [
       '#type' => 'textfield',
-      '#title' => t('AWS Region'),
-      '#description' => t('The region which contains the KMS key(s)'),
+      '#title' => $this->t('AWS Region'),
+      '#description' => $this->t('The region which contains the KMS key(s)'),
       '#default_value' => $config->get('aws_region'),
       '#required' => TRUE,
     ];
     $form['secret_prefix'] = [
       '#type' => 'textfield',
-      '#title' => t('Secret Prefix'),
-      '#description' => t('A string to prefix the key name with. Secret name can contain alphanumeric characters and the characters /_+=,.@-'),
+      '#title' => $this->t('Secret Prefix'),
+      '#description' => $this->t('A string to prefix the key name with. Secret name can contain alphanumeric characters and the characters /_+=,.@-'),
       '#default_value' => $config->get('secret_prefix'),
     ];
 
