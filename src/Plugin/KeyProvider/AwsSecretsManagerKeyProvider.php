@@ -5,6 +5,8 @@ namespace Drupal\aws_secrets_manager\Plugin\KeyProvider;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Aws\SecretsManager\SecretsManagerClient;
+use Drupal\Core\Cache\Cache;
+use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\key\KeyInterface;
 use Drupal\key\Plugin\KeyProviderBase;
@@ -26,6 +28,8 @@ use Drupal\key\Plugin\KeyPluginFormInterface;
  * )
  */
 class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProviderSettableValueInterface, KeyPluginFormInterface {
+
+  const CACHE_DISABLED = 0;
 
   /**
    * The settings.
@@ -56,6 +60,13 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
   protected $logger;
 
   /**
+   * Cache backend.
+   *
+   * @var \Drupal\Core\Cache\CacheBackendInterface
+   */
+  protected $cacheBackend;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
@@ -64,7 +75,8 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
     $instance->configFactory = \Drupal::configFactory();
     return $instance
       ->setClient($container->get('aws_secrets_manager.aws_secrets_manager_client'))
-      ->setLogger($container->get('logger.channel.aws_secrets_manager'));
+      ->setLogger($container->get('logger.channel.aws_secrets_manager'))
+      ->setCacheBackend($container->get('cache.default'));
   }
 
   /**
@@ -96,6 +108,20 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
   }
 
   /**
+   * Sets cache backend property.
+   *
+   * @param \Drupal\Core\Cache\CacheBackendInterface $cacheBackend
+   *   The cache backend.
+   *
+   * @return self
+   *   Current object.
+   */
+  public function setCacheBackend(CacheBackendInterface $cacheBackend) {
+    $this->cacheBackend = $cacheBackend;
+    return $this;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
@@ -103,6 +129,7 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
       'secret_name' => '',
       'property_name' => '',
       'read_only' => TRUE,
+      'cache_max_age' => 0,
     ];
   }
 
@@ -133,6 +160,40 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
       '#default_value' => $this->getConfiguration()['read_only'] ?? FALSE,
     ];
 
+    $period = [
+      0,
+      60,
+      180,
+      300,
+      600,
+      900,
+      1800,
+      2700,
+      3600,
+      10800,
+      21600,
+      32400,
+      43200,
+      86400,
+    ];
+
+    /** @var \Drupal\Core\Datetime\DateFormatterInterface $dateFormatter */
+    $dateFormatter = \Drupal::service('date.formatter');
+    $period = array_map(
+      [$dateFormatter, 'formatInterval'],
+      array_combine($period, $period)
+    );
+    $period[self::CACHE_DISABLED] = '<' . $this->t('no caching') . '>';
+    $period[Cache::PERMANENT] = $this->t('Permanent');
+
+    $form['cache_max_age'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Cache maximum age'),
+      '#description' => $this->t('The maximum time the secret should be cached locally after fetching from AWS Secrets Manager.'),
+      '#options' => $period,
+      '#default_value' => $this->getConfiguration()['cache_max_age'] ?? self::CACHE_DISABLED,
+    ];
+
     return $form;
   }
 
@@ -147,6 +208,11 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
    * {@inheritdoc}
    */
   public function getKeyValue(KeyInterface $key) {
+    $cache = $this->getCache($key);
+    if ($cache !== FALSE) {
+      return $cache;
+    }
+
     $name = $this->getConfiguration()['secret_name'] ?? $key->id();
     $property_name = $this->getConfiguration()['property_name'] ?? '';
 
@@ -163,9 +229,10 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
             return '';
           }
           else {
-            return $value->{$property_name};
+            $value = $value->{$property_name};
           }
         }
+        $this->setCache($key, $value);
         return $value;
       }
     }
@@ -180,6 +247,8 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
    * {@inheritdoc}
    */
   public function setKeyValue(KeyInterface $key, $key_value) {
+    $this->clearCache($key);
+
     $read_only = $this->getConfiguration()['read_only'] ?? FALSE;
     $name = $this->getConfiguration()['secret_name'] ?? $key->id();
 
@@ -215,6 +284,8 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
    * {@inheritdoc}
    */
   public function deleteKeyValue(KeyInterface $key) {
+    $this->clearCache($key);
+
     $read_only = $this->getConfiguration()['read_only'] ?? FALSE;
     $name = $this->getConfiguration()['secret_name'] ?? $key->id();
 
@@ -253,6 +324,84 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
       $key_name,
     ];
     return implode("-", array_filter($parts));
+  }
+
+  /**
+   * Builds the cache ID for the passed in key ID.
+   *
+   * @param string $id
+   *   The ID of the key.
+   *
+   * @return string
+   *   Cache ID that can be passed to the cache backend.
+   */
+  private function buildCacheId($id) {
+    return "key:aws_secrets_manager:$id";
+  }
+
+  /**
+   * Get the value of this key from cache.
+   *
+   * @param \Drupal\key\KeyInterface $key
+   *   The key whose value we're getting.
+   *
+   * @return string|bool
+   *   FALSE if no value is in cache, or the value of the key if found.
+   */
+  private function getCache(KeyInterface $key) {
+    $max_age = $this->getConfiguration()['cache_max_age'] ?? self::CACHE_DISABLED;
+
+    // Check if we can cache this value.
+    if ($max_age == self::CACHE_DISABLED) {
+      return FALSE;
+    }
+
+    $cache = $this->cacheBackend->get($this->buildCacheId($key->id()));
+
+    if (empty($cache)) {
+      return FALSE;
+    }
+
+    return $cache->data;
+  }
+
+  /**
+   * Set the value of this key to cache.
+   *
+   * @param \Drupal\key\KeyInterface $key
+   *   The key whose value we're setting.
+   * @param string $value
+   *   The key value.
+   *
+   * @return bool
+   *   TRUE if successful, FALSE if unsuccessful.
+   */
+  private function setCache(KeyInterface $key, $value) {
+    $max_age = $this->getConfiguration()['cache_max_age'] ?? self::CACHE_DISABLED;
+
+    // Check if we can cache this value.
+    if ($max_age == self::CACHE_DISABLED) {
+      return TRUE;
+    }
+
+    /** @var /Drupal\Component\Datetime\Time $time */
+    $time = \Drupal::service('datetime.time');
+
+    $expire = $max_age === Cache::PERMANENT
+      ? Cache::PERMANENT
+      : $time->getRequestTime() + $max_age;
+
+    $this->cacheBackend->set($this->buildCacheId($key->id()), $value, $expire);
+  }
+
+  /**
+   * Clear the cache for this key.
+   *
+   * @param \Drupal\key\KeyInterface $key
+   *   The key whose value we're clearing.
+   */
+  private function clearCache(KeyInterface $key) {
+    $this->cacheBackend->delete($this->buildCacheId($key->id()));
   }
 
 }
