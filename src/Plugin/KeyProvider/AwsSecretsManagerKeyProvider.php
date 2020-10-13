@@ -5,13 +5,13 @@ namespace Drupal\aws_secrets_manager\Plugin\KeyProvider;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Aws\SecretsManager\SecretsManagerClient;
+use Drupal\Core\Cache\Cache;
+use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\key\KeyInterface;
 use Drupal\key\Plugin\KeyProviderBase;
 use Drupal\key\Plugin\KeyProviderSettableValueInterface;
 use Drupal\key\Plugin\KeyPluginFormInterface;
-use Drupal\Core\Cache\Cache;
-use Drupal\Core\Cache\CacheBackendInterface;
 
 /**
  * Adds a key provider that allows a key to be stored in AWS Secrets Manager.
