@@ -130,7 +130,7 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
     $label = $key->label();
 
     try {
-      $response = $this->client->createSecret([
+      $this->client->createSecret([
         "Name" => $this->secretName($name),
         "Description" => $label,
         "SecretString" => $key_value,
@@ -151,7 +151,7 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
     $name = $key->id();
 
     try {
-      $response = $this->client->deleteSecret([
+      $this->client->deleteSecret([
         "SecretId" => $this->secretName($name),
       ]);
     }
