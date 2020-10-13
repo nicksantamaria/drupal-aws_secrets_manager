@@ -179,7 +179,10 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
 
     /** @var \Drupal\Core\Datetime\DateFormatterInterface $dateFormatter */
     $dateFormatter = \Drupal::service('date.formatter');
-    $period = array_map([$dateFormatter, 'formatInterval'], array_combine($period, $period));
+    $period = array_map(
+      [$dateFormatter, 'formatInterval'],
+      array_combine($period, $period)
+    );
     $period[self::CACHE_DISABLED] = '<' . $this->t('no caching') . '>';
     $period[Cache::PERMANENT] = $this->t('Permanent');
 
