@@ -139,13 +139,6 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
   /**
    * {@inheritdoc}
    */
-  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
-    $key_provider_settings = $form_state->getValues();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
     $this->setConfiguration($form_state->getValues());
   }
