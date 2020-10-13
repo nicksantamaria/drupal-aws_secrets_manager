@@ -12,7 +12,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 class AwsSecretsManagerConfigForm extends ConfigFormBase {
 
   use StringTranslationTrait;
-  
+
   /**
    * {@inheritdoc}
    */
