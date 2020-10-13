@@ -334,7 +334,7 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
    * Builds the cache ID for the passed in key ID.
    *
    * @param string $id
-   *  The ID of the key.
+   *   The ID of the key.
    *
    * @return string
    *   Cache ID that can be passed to the cache backend.
@@ -403,9 +403,6 @@ class AwsSecretsManagerKeyProvider extends KeyProviderBase implements KeyProvide
    *
    * @param \Drupal\key\KeyInterface $key
    *   The key whose value we're clearing.
-   *
-   * @return bool
-   *   TRUE if successful, FALSE if unsuccessful.
    */
   private function clearCache(KeyInterface $key) {
     $this->cacheBackend->delete($this->buildCacheId($key->id()));
